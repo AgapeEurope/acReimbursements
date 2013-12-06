@@ -33,6 +33,17 @@ Namespace DotNetNuke.Modules.StaffRmbMod
 #End Region
 
 #Region "Page Events"
+
+        'Private Sub AddClientActionOld(ByVal Title As String, ByVal theScript As String, ByRef root As DotNetNuke.Entities.Modules.Actions.ModuleAction)
+        '    Dim jsAction As New DotNetNuke.Entities.Modules.Actions.ModuleAction(ModuleContext.GetNextActionID)
+        '    With jsAction
+        '        .Title = Title
+        '        .CommandName = DotNetNuke.Entities.Modules.Actions.ModuleActionType.AddContent
+        '        .ClientScript = theScript
+        '        .Secure = Security.SecurityAccessLevel.Edit
+        '    End With
+        '    root.Actions.Add(jsAction)
+        'End Sub
         Protected Sub Page_Load1(sender As Object, e As System.EventArgs) Handles Me.Load
             hfPortalId.Value = PortalId
             lblMovedMenu.Visible = IsEditable
@@ -60,11 +71,25 @@ Namespace DotNetNuke.Modules.StaffRmbMod
             Next
         End Sub
 
-        
+
 
         Private Sub Page_Load(ByVal sender As System.Object, ByVal e As System.EventArgs) Handles Me.Init
 
-           
+            'Dim addTitle = New DotNetNuke.Entities.Modules.Actions.ModuleAction(GetNextActionID, "AgapeConnect", "AgapeConnect", "", "", "", "", True, SecurityAccessLevel.Edit, True, False)
+
+            'MyBase.Actions.Insert(0, addTitle)
+
+
+            'addTitle.Actions.Add(GetNextActionID, "Settings", "RmbSettings", "", "action_settings.gif", EditUrl("RmbSettings"), False, SecurityAccessLevel.Edit, True, False)
+
+            'AddClientActionOld("Download Batched Transactions", "showDownload()", addTitle)
+            'AddClientActionOld("Suggested Payments", "showSuggestedPayments()", addTitle)
+
+            'For Each a As DotNetNuke.Entities.Modules.Actions.ModuleAction In addTitle.Actions
+            '    If a.Title = "Download Batched Transactions" Or a.Title = "Suggested Payments" Then
+            '        a.Icon = "FileManager/Icons/xls.gif"
+            '    End If
+            'Next
 
             If Not Page.IsPostBack And Request.QueryString("RmbNo") <> "" Then
                 hfRmbNo.Value = CInt(Request.QueryString("RmbNo"))
@@ -75,6 +100,7 @@ Namespace DotNetNuke.Modules.StaffRmbMod
                 hfNoReceiptLimit.Value = Settings("NoReceipt")
             End If
 
+            'DownloadPeriodReport(7, 2013)
 
 
             If Not Page.IsPostBack Then
@@ -90,7 +116,13 @@ Namespace DotNetNuke.Modules.StaffRmbMod
                 Catch ex As Exception
 
                 End Try
+                If StaffBrokerFunctions.GetSetting("NonDynamics", PortalId) = "True" Then
+                    tbAccountCode.Visible = True
+                    tbCostCenter.Visible = True
+                    ddlAccountCode.Visible = False
+                    ddlCostcenter.Visible = False
 
+                End If
                 If StaffBrokerFunctions.GetSetting("ZA-Mode", PortalId) = "True" Then
                     cbExpenses.Enabled = False
                     cbExpenses.Checked = True
@@ -98,6 +130,17 @@ Namespace DotNetNuke.Modules.StaffRmbMod
                     cbSalaries.Enabled = False
 
                 End If
+                ddlDownloadExpenseYEar.Items.Clear()
+                ddlDownloadExpenseYEar.Items.Add(Today.Year - 1)
+                ddlDownloadExpenseYEar.Items.Add(Today.Year)
+                ddlDownloadExpenseYEar.Items.Add(Today.Year + 1)
+                ddlDownloadExpenseYEar.SelectedValue = (Today.Year)
+
+                ddlDownloadExpensePeriod.Items.Clear()
+                For i As Integer = 1 To 12
+                    ddlDownloadExpensePeriod.Items.Add(New ListItem(MonthName(i), i))
+                Next
+                ddlDownloadExpensePeriod.SelectedValue = Today.AddMonths(-1).Month
 
 
 
@@ -172,6 +215,8 @@ Namespace DotNetNuke.Modules.StaffRmbMod
                 ' btnShowSuggestedPayments.Visible = acc
                 ddlCostcenter.Enabled = acc
                 ddlAccountCode.Enabled = acc
+                tbCostCenter.Enabled = acc
+                tbAccountCode.Enabled = acc
                 pnlAccountsOptions.Visible = acc
                 pnlVAT.Visible = Settings("VatAttrib")
 
@@ -785,7 +830,7 @@ Namespace DotNetNuke.Modules.StaffRmbMod
                     lblAdvStatus.Text = Translate(RmbStatus.StatusName(q.First.RequestStatus))
                     Dim StaffMember = UserController.GetUserById(PortalId, q.First.UserId)
 
-
+                    btnAdvPrint.NavigateUrl = "/DesktopModules/AgapeConnect/StaffRmb/AdvPrintout.aspx?AdvNo=" & AdvanceId & "&UID=" & q.First.UserId
 
                     lblAdvCur.Text = "" 'StaffBrokerFunctions.GetSetting("Currency", PortalId)
                     Dim ac = StaffBrokerFunctions.GetSetting("AccountingCurrency", PortalId)
@@ -1465,6 +1510,8 @@ Namespace DotNetNuke.Modules.StaffRmbMod
 
             Catch ex As Exception
                 lblError.Text = "Error loading Rmb: " & ex.Message
+                StaffBrokerFunctions.EventLog("Error loading Rmb", ex.ToString, UserId)
+
                 lblError.Visible = True
             End Try
 
@@ -1526,7 +1573,7 @@ Namespace DotNetNuke.Modules.StaffRmbMod
                         End If
                     Else
                         insert.ForceTaxOrig = Nothing
-                        Dim theCC = From c In d.AP_StaffBroker_CostCenters Where c.CostCentreCode = ddlCostcenter.SelectedValue And c.PortalId = PortalId And c.Type = CostCentreType.Department
+                        Dim theCC = From c In d.AP_StaffBroker_CostCenters Where c.CostCentreCode = SelectedCC And c.PortalId = PortalId And c.Type = CostCentreType.Department
 
                         If age > Settings("Expire") Then
                             Dim msg As String = ""
@@ -1660,8 +1707,17 @@ Namespace DotNetNuke.Modules.StaffRmbMod
 
                     'insert.AccountCode = GetAccountCode(insert.LineType, insert.AP_Staff_Rmb.CostCenter, insert.AP_Staff_Rmb.UserId)
                     'insert.CostCenter = insert.AP_Staff_Rmb.CostCenter
-                    insert.AccountCode = ddlAccountCode.SelectedValue
-                    insert.CostCenter = ddlCostcenter.SelectedValue
+                   
+                    If StaffBrokerFunctions.GetSetting("NonDynamics", PortalId) = "True" Then
+                        insert.AccountCode = tbAccountCode.Text
+                        insert.CostCenter = tbCostCenter.Text
+                    Else
+                        insert.AccountCode = ddlAccountCode.SelectedValue
+                        insert.CostCenter = ddlCostcenter.SelectedValue
+                    End If
+                    If LineTypeName.Contains("Non-Donation") Then
+                        insert.CostCenter = insert.Spare2
+                    End If
 
                     If insert.Receipt Then
                         If q.Count = 0 Then
@@ -1713,10 +1769,10 @@ Namespace DotNetNuke.Modules.StaffRmbMod
                         Dim LineTypeName = d.AP_Staff_RmbLineTypes.Where(Function(c) c.LineTypeId = CInt(ddlLineTypes.SelectedValue)).First.TypeName.ToString()
 
 
-                    
 
 
-                      
+
+
 
 
 
@@ -1787,13 +1843,22 @@ Namespace DotNetNuke.Modules.StaffRmbMod
 
 
 
+                        If StaffBrokerFunctions.GetSetting("NonDynamics", PortalId) = "True" Then
+                            line.First.AccountCode = tbAccountCode.Text
+                            line.First.CostCenter = tbCostCenter.Text
+                        Else
+                            line.First.AccountCode = ddlAccountCode.SelectedValue
+                            line.First.CostCenter = ddlCostcenter.SelectedValue
+                        End If
 
-                        line.First.AccountCode = ddlAccountCode.SelectedValue
-                        line.First.CostCenter = ddlCostcenter.SelectedValue
+                        If LineTypeName.Contains("Non-Donation") Then
+                            line.First.CostCenter = line.First.Spare2
+                        End If
+
                         line.First.LineType = CInt(ddlLineTypes.SelectedValue)
                         line.First.TransDate = CDate(ucType.GetProperty("theDate").GetValue(theControl, Nothing))
                         Dim age = DateDiff(DateInterval.Month, line.First.TransDate, Today)
-                        Dim theCC = From c In d.AP_StaffBroker_CostCenters Where c.CostCentreCode = ddlCostcenter.SelectedValue And c.PortalId = PortalId And c.Type = CostCentreType.Department
+                        Dim theCC = From c In d.AP_StaffBroker_CostCenters Where c.CostCentreCode = SelectedCC And c.PortalId = PortalId And c.Type = CostCentreType.Department
                         If ddlOverideTax.SelectedIndex > 0 And Not (theCC.Count > 0 And ddlOverideTax.SelectedValue = 1) Then
                             line.First.Taxable = (ddlOverideTax.SelectedValue = 1)
                             If (age > Settings("Expire")) Then
@@ -2291,11 +2356,15 @@ Namespace DotNetNuke.Modules.StaffRmbMod
             'ddlLineTypes_SelectedIndexChanged(Me, Nothing)
 
 
+            If StaffBrokerFunctions.GetSetting("NonDynamics", PortalId) = "True" Then
+                tbCostCenter.Text = ddlChargeTo.SelectedValue
+            Else
+                ddlCostcenter.SelectedValue = ddlChargeTo.SelectedValue
+            End If
 
-            ddlCostcenter.SelectedValue = ddlChargeTo.SelectedValue
 
             ddlLineTypes.Items.Clear()
-            Dim lineTypes = From c In d.AP_StaffRmb_PortalLineTypes Where c.PortalId = PortalId Order By c.LocalName Select c.AP_Staff_RmbLineType.LineTypeId, c.LocalName, c.PCode, c.DCode
+            Dim lineTypes = From c In d.AP_StaffRmb_PortalLineTypes Where c.PortalId = PortalId Order By c.AP_Staff_RmbLineType.SpareField2, c.LocalName Select c.AP_Staff_RmbLineType.LineTypeId, c.LocalName, c.PCode, c.DCode
 
             If StaffBrokerFunctions.IsDept(PortalId, ddlChargeTo.SelectedValue) Then
                 lineTypes = lineTypes.Where(Function(x) x.DCode <> "")
@@ -2447,7 +2516,7 @@ Namespace DotNetNuke.Modules.StaffRmbMod
             theRmb.First.Status = RmbStatus.PendingDownload
             theRmb.First.ProcDate = Today
             theRmb.First.MoreInfoRequested = False
-            theRmb.First.ProcUserId = Userid
+            theRmb.First.ProcUserId = UserId
             d.SubmitChanges()
             LoadRmb(hfRmbNo.Value)
             ResetMenu()
@@ -2466,7 +2535,7 @@ Namespace DotNetNuke.Modules.StaffRmbMod
             Dim RmbNo As Integer = CInt(hfRmbNo.Value)
             Dim thisRID = (From c In d.AP_Staff_Rmbs Where c.RMBNo = RmbNo And c.PortalId = PortalId Select c.RID).First
 
-            Dim export As String = "Account,Subaccount,Ref,Date," & GetOrderedString("Description", "Debit", "Credit", "Company")
+            Dim export As String = "Account,Subaccount,Ref,Date," & GetOrderedString("Description", "Debit", "Credit", "Company", Nothing, True)
 
 
             export &= DownloadRmbSingle(CInt(hfRmbNo.Value))
@@ -2482,7 +2551,7 @@ Namespace DotNetNuke.Modules.StaffRmbMod
             HttpContext.Current.Response.AddHeader("Pragma", "public")
             HttpContext.Current.Response.Write(export)
 
-
+            HttpContext.Current.Response.End()
 
         End Sub
 
@@ -2555,7 +2624,27 @@ Namespace DotNetNuke.Modules.StaffRmbMod
         '    DownloadBatch()
 
         'End Sub
+
+        'Protected Sub btnAdvPrint_Click(sender As Object, e As System.EventArgs) Handles btnAdvPrint.Click
+
+
+        '    Dim theAdv = From c In d.AP_Staff_AdvanceRequests Where c.AdvanceId = -CInt(hfRmbNo.Value)
+
+
+        '    Dim t As Type = btnAdvPrint.GetType()
+        '    Dim sb As System.Text.StringBuilder = New System.Text.StringBuilder()
+        '    sb.Append("<script language='javascript'>")
+
+        '    sb.Append("window.open('/DesktopModules/AgapeConnect/StaffRmb/AdvPrintout.aspx?AdvNo=" & -CInt(hfRmbNo.Value) & "&UID=" & theAdv.First.UserId & "', '_blank'); ")
+
+        '    sb.Append("</script>")
+        '    ScriptManager.RegisterStartupScript(btnAdvPrint, t, "AdvPrintOut", sb.ToString, False)
+
+
+
+        'End Sub
         Protected Sub btnPrint_Click(sender As Object, e As System.EventArgs) Handles btnPrint.Click
+
             Dim theRmb = From c In d.AP_Staff_Rmbs Where c.RMBNo = CInt(hfRmbNo.Value)
 
 
@@ -2567,6 +2656,10 @@ Namespace DotNetNuke.Modules.StaffRmbMod
 
             sb.Append("</script>")
             ScriptManager.RegisterStartupScript(btnPrint, t, "printOut", sb.ToString, False)
+
+
+
+
 
         End Sub
         Protected Sub btnUnProcess_Click(sender As Object, e As System.EventArgs) Handles btnUnProcess.Click
@@ -2708,8 +2801,8 @@ Namespace DotNetNuke.Modules.StaffRmbMod
                     End If
                     Try
 
-                  
-                    ucType.GetProperty("ReceiptType").SetValue(theControl, receiptMode, Nothing)
+
+                        ucType.GetProperty("ReceiptType").SetValue(theControl, receiptMode, Nothing)
                     Catch ex As Exception
 
                     End Try
@@ -2742,9 +2835,15 @@ Namespace DotNetNuke.Modules.StaffRmbMod
                     btnAddLine.CommandName = "Edit"
                     btnAddLine.CommandArgument = CInt(e.CommandArgument)
 
+                    If StaffBrokerFunctions.GetSetting("NonDynamics", PortalId) = "True" Then
+                        tbCostCenter.Text = theLine.First.CostCenter
+                        tbAccountCode.Text = theLine.First.AccountCode
+                    Else
+                        ddlCostcenter.SelectedValue = theLine.First.CostCenter
+                        ddlAccountCode.SelectedValue = theLine.First.AccountCode
+                    End If
 
-                    ddlCostcenter.SelectedValue = theLine.First.CostCenter
-                    ddlAccountCode.SelectedValue = theLine.First.AccountCode
+
 
                     ifReceipt.Attributes("src") = Request.Url.Scheme & "://" & Request.Url.Host & "/DesktopModules/AgapeConnect/StaffRmb/ReceiptEditor.aspx?RmbNo=" & theLine.First.RmbNo & "&RmbLine=" & theLine.First.RmbLineNo
 
@@ -2854,6 +2953,24 @@ Namespace DotNetNuke.Modules.StaffRmbMod
 
 
 #End Region
+
+
+        Public Property SelectedCC() As String
+            Get
+                Dim CC = ""
+                If StaffBrokerFunctions.GetSetting("NonDynamics", PortalId) = "True" Then
+                    CC = tbCostCenter.Text
+                Else
+                    CC = ddlCostcenter.SelectedValue
+                End If
+                Return CC
+            End Get
+            Set(ByVal value As String)
+
+            End Set
+        End Property
+
+
 #Region "DropDownList Events"
         Protected Sub ddlLineTypes_SelectedIndexChanged(ByVal sender As Object, ByVal e As System.EventArgs) Handles ddlLineTypes.SelectedIndexChanged
             If lblIncType.Visible And ddlLineTypes.SelectedIndex <> ddlLineTypes.Items.Count - 1 Then
@@ -2861,7 +2978,9 @@ Namespace DotNetNuke.Modules.StaffRmbMod
                 ddlLineTypes.Items.Clear()
                 Dim lineTypes = From c In d.AP_StaffRmb_PortalLineTypes Where c.PortalId = PortalId Order By c.LocalName Select c.AP_Staff_RmbLineType.LineTypeId, c.LocalName, c.PCode, c.DCode
 
-                If StaffBrokerFunctions.IsDept(PortalId, ddlCostcenter.SelectedValue) Then
+
+
+                If StaffBrokerFunctions.IsDept(PortalId, SelectedCC) Then
                     lineTypes = lineTypes.Where(Function(x) x.DCode <> "")
 
                 Else
@@ -3315,6 +3434,37 @@ Namespace DotNetNuke.Modules.StaffRmbMod
             Return rtn
         End Function
 
+        Public Function GetLineTypeClass(ByVal CostCenter As String, ByVal LineTypeId As Integer) As String
+            If IsWrongType(CostCenter, LineTypeId) Then
+                Return "ui-state-error ui-corner-all"
+            End If
+
+            Dim q = From c In d.AP_Staff_RmbLineTypes Where c.LineTypeId = LineTypeId
+
+            If q.Count > 0 Then
+                If q.First.SpareField2 = "INCOME" Then
+                    Return "ui-state-highlight ui-corner-all"
+                End If
+
+            End If
+            Return ""
+        End Function
+        Public Function GetLineTypeMessage(ByVal CostCenter As String, ByVal LineTypeId As Integer) As String
+            If IsWrongType(CostCenter, LineTypeId) Then
+                Return Translate("lblWrongType")
+            End If
+
+            Dim q = From c In d.AP_Staff_RmbLineTypes Where c.LineTypeId = LineTypeId
+
+            If q.Count > 0 Then
+                If q.First.SpareField2 = "INCOME" Then
+                    Return Translate("lblIncome")
+                End If
+
+            End If
+            Return ""
+        End Function
+
 #End Region
 
 #Region "Utilities"
@@ -3327,6 +3477,10 @@ Namespace DotNetNuke.Modules.StaffRmbMod
 
 
             If q.Count > 0 Then
+                If (q.First.AP_Staff_RmbLineType.ControlPath.Contains("RmbDonation")) Then
+                    Return Settings("HoldingAccount")
+                End If
+
                 If q.First.PCode.Length = 0 And q.First.DCode.Length > 0 Then
                     Return q.First.DCode
                 ElseIf q.First.DCode.Length = 0 And q.First.PCode.Length > 0 Then
@@ -3501,7 +3655,32 @@ Namespace DotNetNuke.Modules.StaffRmbMod
                     '    'End If
 
                     'End If
-                    ddlAccountCode.SelectedValue = GetAccountCode(lt.First.LineTypeId, ddlCostcenter.SelectedValue)
+                    If StaffBrokerFunctions.GetSetting("NonDynamics", PortalId) = "True" Then
+
+                        If (lt.First.ControlPath.Contains("RmbDonation")) Then
+                            tbAccountCode.Text = Settings("HoldingAccount")
+                            tbCostCenter.Text = Settings("ControlAccount")
+                        Else
+                            tbAccountCode.Text = GetAccountCode(lt.First.LineTypeId, tbCostCenter.Text)
+                            tbCostCenter.Text = ddlChargeTo.SelectedValue
+                        End If
+                    Else
+
+                        If (lt.First.ControlPath.Contains("RmbDonation")) Then
+                            ddlAccountCode.SelectedValue = Settings("HoldingAccount")
+                            ddlCostcenter.SelectedValue = Settings("ControlAccount")
+                        Else
+                            ddlAccountCode.SelectedValue = GetAccountCode(lt.First.LineTypeId, ddlCostcenter.SelectedValue)
+
+                            ddlCostcenter.SelectedValue = ddlChargeTo.SelectedValue
+
+
+
+                        End If
+
+                    End If
+
+
 
 
                 End If
@@ -3709,7 +3888,7 @@ Namespace DotNetNuke.Modules.StaffRmbMod
                     End If
                     Dim shortComment = GetLineComment(line.Comment, line.OrigCurrency, line.OrigCurrencyAmount, line.ShortComment, True, Left(theUser.FirstName, 1) & Left(theUser.LastName, 1), IIf(line.AP_Staff_RmbLineType.TypeName = "Mileage", line.Spare2, ""))
                     rtn &= GetOrderedString(shortComment,
-                                         Debit, Credit)
+                                         Debit, Credit, "", line)
 
 
 
@@ -3937,7 +4116,7 @@ Namespace DotNetNuke.Modules.StaffRmbMod
             End If
             Return rtn
         End Function
-        Protected Function GetOrderedString(ByVal Desc As String, ByVal Debit As String, ByVal Credit As String, Optional Company As String = "") As String
+        Protected Function GetOrderedString(ByVal Desc As String, ByVal Debit As String, ByVal Credit As String, Optional Company As String = "", Optional line As AP_Staff_RmbLine = Nothing, Optional title As Boolean = False) As String
             Dim format As String = "DDC"
             If CStr(Settings("DownloadFormat")) <> "" Then
                 format = CStr(Settings("DownloadFormat"))
@@ -3956,13 +4135,137 @@ Namespace DotNetNuke.Modules.StaffRmbMod
                     Return "=""" & CompanyName & """,=""" & Debit & """,=""" & Credit & """,=""" & Desc & """" & vbNewLine
                 Case "CDDC"
                     Return "=""" & CompanyName & """,=""" & Desc & """,=""" & Debit & """,=""" & Credit & """" & vbNewLine
-                Case Else 'including DDC
+                Case "DDC"
                     Return "=""" & Desc & """,=""" & Debit & """,=""" & Credit & """" & vbNewLine
+                Case Else 'Including GEN
+                    Dim VAT As String = "N"
+                    Dim Cur As String = ""
+                    Dim CurAmt As String = ""
+                    Dim TRXDate As String = ""
+                    Dim ApprDate As String = ""
+                    Dim FullComment As String = ""
+                    If title Then
+                        VAT = "VAT"
+                        Cur = "Original Currency"
+                        CurAmt = "Original Currency Amount"
+                        TRXDate = "Transaction Date"
+                        ApprDate = "Approval Date"
+                        FullComment = "Orignal Description (Long)"
+                    ElseIf Not line Is Nothing Then
+                        VAT = IIf(line.VATReceipt, "Y", "N")
+                        Cur = line.OrigCurrency
+                        CurAmt = line.OrigCurrencyAmount
+                        TRXDate = line.TransDate.ToString("yyyy MMM dd")
+                        ApprDate = line.TransDate.ToString("yyyy MMM dd")
+                        FullComment = line.Comment
+                    End If
+
+                    Return "=""" & Desc & """,=""" & Debit & """,=""" & Credit & """,=""" & VAT & """,=""" & Cur & """,=""" & CurAmt & """,=""" & TRXDate & """,=""" & ApprDate & """,=""" & FullComment & """" & vbNewLine
             End Select
 
 
 
         End Function
+
+        Protected Sub DownloadPeriodReport(ByVal Period As Integer, ByVal Year As Integer)
+            Dim q = From c In d.AP_Staff_Rmbs Where c.PortalId = PortalId And c.Period = Period And c.Year = Year And c.Status = RmbStatus.Processed
+            Dim csvOut As String = "RmbNo, Primary RC, Type, Submitted by, Submitted on,Approved by, Approved on, Processed By, Processed on, Amount" & vbNewLine
+
+            For Each row In q
+                Dim SubmitterName = ""
+                Dim ApproverName = ""
+                Dim ProcessorName = ""
+
+                Dim submitter = UserController.GetUserById(PortalId, row.UserId)
+                If Not submitter Is Nothing Then
+                    SubmitterName = submitter.DisplayName
+                End If
+                Dim approver = UserController.GetUserById(PortalId, row.ApprUserId)
+                If Not approver Is Nothing Then
+                    ApproverName = approver.DisplayName
+                End If
+                Dim Processor = UserController.GetUserById(PortalId, row.ProcUserId)
+                If Not Processor Is Nothing Then
+                    ProcessorName = Processor.DisplayName
+                End If
+
+
+
+                csvOut &= row.RID & ","
+                csvOut &= """" & row.CostCenter & ""","
+                csvOut &= """" & IIf(row.Department, "D", "P") & ""","
+                csvOut &= """" & SubmitterName & ""","
+                csvOut &= row.RmbDate.Value.ToString("yyyy-MM-dd") & ","
+                csvOut &= """" & ApproverName & ""","
+                csvOut &= row.ApprDate.Value.ToString("yyyy-MM-dd") & ","
+                csvOut &= """" & ProcessorName & ""","
+                csvOut &= row.ProcDate.Value.ToString("yyyy-MM-dd") & ","
+                csvOut &= row.AP_Staff_RmbLines.Sum(Function(c) c.GrossAmount) & vbNewLine
+
+
+            Next
+
+            csvOut &= vbNewLine
+            csvOut &= "AdvNo, Staff RC, Type, Submitted by, Submitted on,Approved by, Approved on, Processed By, Processed on, Amount" & vbNewLine
+            Dim r = From c In d.AP_Staff_AdvanceRequests Where c.PortalId = PortalId And c.Period = Period And c.Year = Year And c.RequestStatus = RmbStatus.Processed
+
+            For Each row In r
+                Dim SubmitterName = ""
+                Dim ApproverName = ""
+                Dim ProcessorName = ""
+
+                Dim submitter = UserController.GetUserById(PortalId, row.UserId)
+                If Not submitter Is Nothing Then
+                    SubmitterName = submitter.DisplayName
+                End If
+                Dim approver = UserController.GetUserById(PortalId, row.ApproverId)
+                If Not approver Is Nothing Then
+                    ApproverName = approver.DisplayName
+                End If
+
+
+                Dim RC = StaffBrokerFunctions.GetStaffMember(row.UserId).CostCenter
+
+
+                csvOut &= row.LocalAdvanceId & ","
+                csvOut &= """" & RC & ""","
+                csvOut &= """Advance"","
+                csvOut &= """" & SubmitterName & ""","
+                csvOut &= row.RequestDate.Value.ToString("yyyy-MM-dd") & ","
+                csvOut &= """" & ApproverName & ""","
+                csvOut &= row.ApprovedDate.Value.ToString("yyyy-MM-dd") & ","
+                csvOut &= """" & ProcessorName & ""","
+                csvOut &= row.ProcessedDate.Value.ToString("yyyy-MM-dd") & ","
+                csvOut &= row.RequestAmount & vbNewLine
+
+
+            Next
+
+            Dim t As Type = Me.GetType()
+            Dim sb As System.Text.StringBuilder = New System.Text.StringBuilder()
+            sb.Append("<script language='javascript'>")
+            sb.Append("closePopupDownloadExpense();")
+            sb.Append("</script>")
+            ScriptManager.RegisterStartupScript(Page, t, "popupDownloadExpense", sb.ToString, False)
+
+
+
+            Dim attachment As String = "attachment; filename=Expense Report - " & Year & " Period " & Period & ".csv"
+
+
+
+
+            HttpContext.Current.Response.Clear()
+            HttpContext.Current.Response.ClearHeaders()
+            HttpContext.Current.Response.ClearContent()
+            HttpContext.Current.Response.AddHeader("content-disposition", attachment)
+            HttpContext.Current.Response.ContentType = "text/csv"
+            HttpContext.Current.Response.AddHeader("Pragma", "public")
+            HttpContext.Current.Response.Write(csvOut)
+            HttpContext.Current.Response.End()
+
+
+        End Sub
 
 
         Protected Sub DownloadBatch(Optional ByVal MarkAsProcessed As Boolean = False)
@@ -3971,7 +4274,7 @@ Namespace DotNetNuke.Modules.StaffRmbMod
 
             Dim pendDownload = From c In d.AP_Staff_Rmbs Where downloadStatuses.Contains(c.Status) And c.PortalId = PortalId
 
-            Dim export As String = "Account,Subaccount,Ref,Date," & GetOrderedString("Description", "Debit", "Credit", "Company")
+            Dim export As String = "Account,Subaccount,Ref,Date," & GetOrderedString("Description", "Debit", "Credit", "Company", Nothing, True)
             Dim RmbList As New List(Of Integer)
             For Each rmb In pendDownload
                 Log(rmb.RMBNo, "Downloading Rmb")
@@ -4035,7 +4338,7 @@ Namespace DotNetNuke.Modules.StaffRmbMod
                 ResetMenu()
 
 
-                
+
             End If
 
 
@@ -4951,9 +5254,11 @@ Namespace DotNetNuke.Modules.StaffRmbMod
             Dim jsAction As New DotNetNuke.Entities.Modules.Actions.ModuleAction(ModuleContext.GetNextActionID)
             With jsAction
                 .Title = Title
-                .CommandName = DotNetNuke.Entities.Modules.Actions.ModuleActionType.AddContent
+                ' .CommandName = DotNetNuke.Entities.Modules.Actions.ModuleActionType.
+                .Url = "javascript: " & theScript & ";"
                 .ClientScript = theScript
                 .Secure = Security.SecurityAccessLevel.Edit
+                .UseActionEvent = False
             End With
             root.Add(jsAction)
         End Sub
@@ -4966,17 +5271,25 @@ Namespace DotNetNuke.Modules.StaffRmbMod
 
                 AddClientAction("Download Batched Transactions", "showDownload()", Actions)
                 AddClientAction("Suggested Payments", "showSuggestedPayments()", Actions)
-
+                AddClientAction("Download Period Expense Report", "showDownloadExpense()", Actions)
                 For Each a As DotNetNuke.Entities.Modules.Actions.ModuleAction In Actions
-                    If a.Title = "Download Batched Transactions" Or a.Title = "Suggested Payments" Then
+                    If a.Title = "Download Batched Transactions" Or a.Title = "Suggested Payments" Or a.Title = "Download Period Expense Report" Then
                         a.Icon = "FileManager/Icons/xls.gif"
+
+
                     End If
+
+
                 Next
                 Return Actions
             End Get
         End Property
 
 #End Region
-      
+
+        Protected Sub btnDownloadExpenseOK_Click(sender As Object, e As EventArgs) Handles btnDownloadExpenseOK.Click
+            DownloadPeriodReport(ddlDownloadExpensePeriod.SelectedValue, ddlDownloadExpenseYEar.SelectedValue)
+
+        End Sub
     End Class
 End Namespace

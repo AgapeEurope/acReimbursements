@@ -29,6 +29,7 @@
                 else{
                     $("#<%= pnlElecReceipts.ClientID%>").slideUp("slow");
                 }
+               
             });
 
            
@@ -227,6 +228,19 @@
                 }
             });
             $("#divDownload").parent().appendTo($("form:first"));
+
+            $("#divDownloadExpense").dialog({
+                autoOpen: false,
+                height: 350,
+                width: 500,
+                modal: true,
+                title: 'Period Expense Report',
+                close: function () {
+                    //  allFields.val("").removeClass("ui-state-error");
+                }
+            });
+            $("#divDownloadExpense").parent().appendTo($("form:first"));
+
             $("#divAccountWarning").dialog({
                 autoOpen: false,
                 height: 150,
@@ -340,6 +354,7 @@
  function closePopup3() {$("#divSignin3").dialog("close");}
  function closePopupSplit() {$("#divSplitPopup").dialog("close");}
  function closePopupDownload() {$("#divDownload").dialog("close");}
+ function closePopupDownloadExpense() {$("#divDownloadExpense").dialog("close");}
  function closePopupAccountWarning() {$("#divAccountWarning").dialog("close");}
 
     
@@ -371,6 +386,8 @@
  function showPopup3() {$("#divSignin3").dialog("open"); return false; }
  function showPopupSplit() {$("#divSplitPopup").dialog("open"); return false; }
  function showDownload() { $("#divDownload").dialog("open"); return false; }
+ function showDownloadExpense() { $("#divDownloadExpense").dialog("open"); return false; }
+ 
  function showAccountWarning() { $("#divAccountWarning").dialog("open"); return false; }
 
      
@@ -1463,7 +1480,7 @@
                                                     <asp:TextBox ID="TextBox1" runat="server" Text='<%# Bind("LineType") %>'></asp:TextBox>
                                                 </EditItemTemplate>
                                                 <ItemTemplate>
-                                                    <asp:Label ID="Label1" runat="server" CssClass='<%# IIF(IsWrongType(Eval("CostCenter"), Eval("LineType")), "ui-state-error ui-corner-all","") %>' ToolTip='<%# IIF(IsWrongType(Eval("CostCenter"), Eval("LineType")),Translate("lblWrongType"),"") %>' Text='<%# GetLocalTypeName(Eval("AP_Staff_RmbLineType.LineTypeId") )%>'></asp:Label>
+                                                    <asp:Label ID="Label1" runat="server" CssClass='<%# GetLineTypeClass(Eval("CostCenter"), Eval("LineType"))%>' ToolTip='<%# GetLineTypeMessage(Eval("CostCenter"), Eval("LineType"))  %>' Text='<%# GetLocalTypeName(Eval("AP_Staff_RmbLineType.LineTypeId") )%>'></asp:Label>
                                                 </ItemTemplate>
                                                 <HeaderStyle ForeColor="White" />
                                                 <ItemStyle HorizontalAlign="Left" />
@@ -1558,7 +1575,8 @@
 
 
                                 <div style="margin-top: 15px;">
-                                    <fieldset id="pnlAdvance" runat="server" visible="false" style="float: left;">
+                                    <div style="float: left;">
+                                    <fieldset id="pnlAdvance" runat="server" visible="false" >
                                         <legend><span class="AgapeH4">Pay Off Advance</span> </legend>
                                         <asp:Label ID="ttlAdvanceBalance" runat="server" ForeColor="Gray" resourcekey="AdvanceBalance"></asp:Label>
                                         &nbsp;
@@ -1579,12 +1597,37 @@
                                                 </td>
                                                 <td>
                                                     <asp:Button ID="btnSaveAdv" runat="server" resourcekey="btnSave" Font-Size="8pt"
-                                                        CommandName="Save" class="aButton" />
+                                                        CommandName="Save" class="aButton" /></td>
                                             </tr>
                                         </table>
                                         <asp:Label ID="lblAdvError" runat="server" ForeColor="Red"></asp:Label>
                                     </fieldset>
+                                        <fieldset id="pnlVendor" runat="server" visible="true">
+                                             <legend><span class="AgapeH4">Pay to Vendor</span> </legend>
+                                            <asp:LinkButton ID="LinkButton8" runat="server">Add Vendor Payment</asp:LinkButton>
+                                        </fieldset>
+                                        <fieldset id="pnlPaymentOptions" runat="server" visible="true">
+                                             <legend><span class="AgapeH4">Payment Options</span> </legend>
+                                            <table>
+                                                <tr>
+                                                    <td>
+                                                        <dnn:Label ID="Label48" runat="server" ControlName="tbAdvanceAmount" ResourceKey="lblPaymentMethod" Text ="Prefered Payment Method" />
+                                                    </td>
+                                                    <td>
+                                                        <asp:DropDownList ID="ddlPaymentMethod" runat="server">
+                                                            <asp:ListItem Text="Bank Transfer"></asp:ListItem>
+                                                            <asp:ListItem Text="Cheque"></asp:ListItem>
+                                                            <asp:ListItem Text="Goat"></asp:ListItem>
+                                                        </asp:DropDownList>
+                                                       
+                                                    </td>
+                                                   
+                                                    </tr>
+                                        </table>
 
+
+                                        </fieldset>
+                                        </div>
                                     <fieldset id="pnlError" runat="server" visible="false" style="margin-top: 15px;">
                                         <legend>
                                             <asp:Label ID="Label44" runat="server" CssClass="AgapeH4" ResourceKey="lblErrorMessage"></asp:Label>
@@ -1731,6 +1774,10 @@
                                             <asp:Button ID="btnAdvCancel" runat="server" ResourceKey="btnCancel" CssClass="aButton" />
                                             <asp:Button ID="btnAdvProcess" runat="server" ResourceKey="btnProcess" CssClass="aButton" />
                                             <asp:Button ID="btnAdvUnProcess" runat="server" ResourceKey="btnUnProcess" CssClass="aButton" />
+                                        
+                                            <asp:HyperLink ID="btnAdvPrint" runat="server"  resourcekey="btnPrint"  class="aButton" Target="_blank"> </asp:HyperLink>
+
+
                                             <asp:LinkButton ID="btnAdvDownload" runat="server">
                                                 <div style="vertical-align: middle; float: right; padding-top: 8px; margin-right: 20px">
                                                     <img src="/DesktopModules/AgapeConnect/StaffRmb/Images/Excel_icon.gif" alt="" />
@@ -1755,7 +1802,7 @@
                         <asp:AsyncPostBackTrigger ControlID="btnCancel" EventName="Click" />
                         <asp:PostBackTrigger ControlID="btnDownload" />
                         <asp:PostBackTrigger ControlID="btnAdvDownload" />
-
+                     
                     </Triggers>
                 </asp:UpdatePanel>
             </td>
@@ -1792,7 +1839,7 @@
                                         <asp:DropDownList ID="ddlAccountCode" runat="server" Width="60px" DataSourceID="dsAccountCodes"
                                             DataTextField="DisplayName" DataValueField="AccountCode" Enabled="false">
                                         </asp:DropDownList>
-
+                                         <asp:TextBox ID="tbAccountCode" runat="server"  Visible="false"></asp:TextBox>
 
                                         <asp:LinqDataSource ID="dsAccountCodes" runat="server" ContextTypeName="StaffRmb.StaffRmbDataContext"
                                             EntityTypeName="" Select="new (AccountCode,  AccountCode + ' ' + '-' + ' ' + AccountCodeName  as DisplayName )"
@@ -1807,6 +1854,7 @@
                                             AppendDataBoundItems="true">
                                             <asp:ListItem Text="" Value="" />
                                         </asp:DropDownList>
+                                          <asp:TextBox ID="tbCostCenter" runat="server"  Visible="false"></asp:TextBox>
                                         <asp:LinqDataSource ID="dsCostCenters" runat="server" ContextTypeName="StaffBroker.StaffBrokerDataContext"
                                             EntityTypeName="" OrderBy="CostCentreCode" Select="new (CostCentreCode,CostCentreCode + ' ' + '-' + ' ' + CostCentreName as DisplayName)"
                                             TableName="AP_StaffBroker_CostCenters" Where="PortalId == @PortalId">
@@ -1903,6 +1951,8 @@
                     <asp:AsyncPostBackTrigger ControlID="btnAddLine" EventName="Click" />
                     <%--  <asp:AsyncPostBackTrigger ControlID="btnPrint"  EventName="Click" />--%>
                     <asp:PostBackTrigger ControlID="btnPrint" />
+                      
+                      <asp:PostBackTrigger ControlID="btnDownloadExpenseOK" />
                     <%--  <asp:PostBackTrigger ControlID="btnDownloadBatch" />
                 <asp:PostBackTrigger ControlID="btnSuggestedPayments" />--%>
                     <%--  <asp:PostBackTrigger ControlID="btnAddLine" />--%>
@@ -2067,6 +2117,36 @@
             <asp:Button ID="btnDontMarkProcessed" runat="server" resourcekey="btnNo" class="aButton" />
         </div>
     </div>
+
+    <div id="divDownloadExpense" class="ui-widget">
+        <table>
+            <tr>
+                <td>Year:</td>
+                <td>
+                     <asp:DropDownList ID="ddlDownloadExpenseYEar" runat="server">
+                      
+                    </asp:DropDownList>
+                </td>
+            </tr>
+            <tr>
+                <td>Month:</td>
+
+                <td>
+                    <asp:DropDownList ID="ddlDownloadExpensePeriod" runat="server">
+                      
+                    </asp:DropDownList>
+                </td>
+            </tr>
+        </table>
+
+        <br />
+        <div width="100%" style="text-align: center">
+            <asp:Button ID="btnDownloadExpenseOK" runat="server" resourcekey="btnOK" class="aButton" OnClientClick="closePopupDownloadExpense();" />
+              <input id="Button3" type="button" value='<%= Translate("btnCancel") %>' onclick="closePopupDownloadExpense();"
+                        class="aButton" />
+        </div>
+    </div>
+
     <div id="divAccountWarning" class="ui-widget">
         <asp:Label ID="Label46" runat="server" Font-Bold="true" resourcekey="lblAccountWarning"></asp:Label>
         <br />
